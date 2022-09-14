@@ -1,32 +1,57 @@
-import json
-
-file = open("pokemon_full.json")
-pokemon_str = file.read()
-json_object = json.loads(pokemon_str)
-print(f"1. Общая длина файла равна: {len(pokemon_str)}")
-
-punctuations = '''‘’“”«»?‐…‒–—―⟨ ⟩''’!()-[]{};:'"\,<>./#$%^&*_~␠␢␣@©'''
-
-str_without_punc = ""
-for i in pokemon_str:
-    if i not in punctuations:
-        str_without_punc += i
-new_string = str_without_punc.replace("\n", "")
-print(f"2. Общая длина без пробелов и знаков препинания: {len(new_string)}")
-
-max_desc = 0
-max_amount = 0
-poke_name = ""
-res_ability = ""
-for pokemon in json_object:
-    desc = pokemon["description"]
-    for ability_str in pokemon["abilities"]:
-        if len(ability_str.split()) > max_amount:
-            max_amount = len(ability_str.split())
-            res_ability = ability_str
-    if len(desc) > max_desc:
-        max_desc = len(desc)
-        poke_name = pokemon["name"]
-print(f"3. Покемон {poke_name} с самым длинным описанием {max_desc} символов")
-print(f"4. Самое большое количество слов: {res_ability}")
-file.close()
+from flask import Flask, redirect, url_for, request, render_template
+from mysql.connector import errorcode
+import mysql.connector
+ 
+app = Flask(__name__)
+ 
+@app.route('/result', methods=['POST', 'GET'])
+def result_page(item_list):
+    print item_list
+    return render_template('result.html')
+ 
+ 
+@app.route('/login', methods=['POST', 'GET'])
+def login_page():
+    username = request.form.get('uname')
+    password = request.form.get('psw')
+    # return str(username) + " " + str(password)
+    try:
+        connector = mysql.connector.connect(user='test', password='123', host='127.0.0.1', database='sh')
+    except mysql.connector.Error as err:
+        if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+            return "Something is wrong with your db user name or password!"
+        elif err.errno == errorcode.ER_BAD_DB_ERROR:
+            return "Database does not exist1"
+        else:
+            return "Another exception, returning!"
+    else:
+        # connector.close()
+        print 'Connection to DB is ready!'
+    try:
+        cursor = connector.cursor()
+        sql_command = "Select * From UserInfos Where firstname = '%s' And password = '%s'" % (username, password)
+        cursor.execute(sql_command)
+        result = cursor.fetchall()
+        print 'username: %s, password: %s' % (username, password)
+        print result
+        if result and len(result) != 0:
+            return_value = "<h1>DB Entries</h1>"
+            for i in result:
+                return_value += " <p> "
+                return_value += str(i)
+                return_value += " </p>"
+            print return_value
+            return "Successfully Logged In, Welcome! %s " % return_value
+        else:
+            return "Wrong username or password. Or you are attacking us?"
+ 
+        # return redirect(url_for('result_page', item_list=result))
+    except:
+        return "Error!"
+ 
+@app.route('/')
+def home_page():
+    return render_template('login.html')
+ 
+if __name__ == '__main__':
+   app.run("0.0.0.0")
